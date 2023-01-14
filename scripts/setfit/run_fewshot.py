@@ -3,6 +3,7 @@ import json
 import os
 import pathlib
 import sys
+import time
 import warnings
 from collections import Counter
 from shutil import copyfile
@@ -56,6 +57,7 @@ def parse_args():
     parser.add_argument("--keep_body_frozen", default=False, action="store_true")
     parser.add_argument("--add_data_augmentation", default=False)
     parser.add_argument("--unique_pairs", type=bool, default=False)
+    parser.add_argument("--train_time", type=bool, default=False)
 
     args = parser.parse_args()
 
@@ -144,8 +146,10 @@ def main():
                 batch_size=args.batch_size,
                 num_epochs=args.num_epochs,
                 num_iterations=args.num_iterations,
-                unique_pairs=args.unique_pairs,
             )
+            if args.unique_pairs:
+                trainer.unique_pairs = True
+            st = time.time()
             if args.classifier == "pytorch":
                 trainer.freeze()
                 trainer.train()
@@ -159,17 +163,18 @@ def main():
                 )
             else:
                 trainer.train()
+            runtime = time.time() - st
 
             # Evaluate the model on the test data
             metrics = trainer.evaluate()
             print(f"Metrics: {metrics}")
 
+            results = {"score": metrics[metric] * 100, "measure": metric}
+            if args.train_time:
+                results.update({"train_time": runtime})
+
             with open(results_path, "w") as f_out:
-                json.dump(
-                    {"score": metrics[metric] * 100, "measure": metric},
-                    f_out,
-                    sort_keys=True,
-                )
+                json.dump(results, f_out, sort_keys=True)
 
 
 if __name__ == "__main__":
