@@ -1,8 +1,8 @@
 import os
 from dataclasses import dataclass
-from itertools import combinations, combinations_with_replacement, zip_longest
+from itertools import combinations_with_replacement, zip_longest
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Generator, List, Optional, Tuple, Union
 
 
 # Google Colab runs on Python 3.7, so we need this to be compatible
@@ -634,6 +634,13 @@ class SupConLoss(nn.Module):
         return loss
 
 
+def shuffle_combinations(length: int) -> Generator:
+    """Generates shuffled index pair combinations."""
+    idx = np.stack(np.triu_indices(length, k=1), axis=-1)
+    for i in np.random.RandomState(0).permutation(len(idx)):
+        yield idx[i, :]
+
+
 def positive_sentence_pairs_generate(
     sentences: np.ndarray, labels: np.ndarray, max_pairs: int, unique_pairs: bool = False, multilabel: bool = False
 ) -> List[InputExample]:
@@ -703,9 +710,11 @@ def negative_sentence_pairs_generate(
         List of negative sentence pairs (upto the no. of unique_pairs or max_pairs)
     """
     pairs = []
+    num_sentences = len(sentences)
     while True:
-        sent_labels = [(sent, label) for sent, label in zip(sentences, labels)]
-        for (_sentence, _label), (sentence, label) in combinations(sent_labels, 2):
+        for idx_pair in shuffle_combinations(num_sentences):
+            _sentence, sentence = sentences[idx_pair]
+            _label, label = labels[idx_pair]
             # logical_and checks if labels are both set for each class
             if (multilabel and not any(np.logical_and(_label, label))) or (not multilabel and _label != label):
                 pairs.append(InputExample(texts=[_sentence, sentence], label=0.0))
@@ -740,6 +749,7 @@ def sentence_pairs_generation(
     positive_pairs = positive_sentence_pairs_generate(sentences, labels, max_pos_pairs, unique_pairs, multilabel)
 
     max_neg_pairs = (num_iterations * len(sentences) * 2) - len(positive_pairs)
+    # max_neg_pairs = len(positive_pairs)  # keeps this in a 50:50 ratio of pos-neg samples
     negative_pairs = negative_sentence_pairs_generate(sentences, labels, max_neg_pairs, unique_pairs, multilabel)
 
     return positive_pairs + negative_pairs

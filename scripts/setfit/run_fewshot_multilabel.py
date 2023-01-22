@@ -58,6 +58,7 @@ def parse_args():
     parser.add_argument("--is_dev_set", type=bool, default=False)
     parser.add_argument("--is_test_set", type=bool, default=False)
     parser.add_argument("--override_results", default=False, action="store_true")
+    parser.add_argument("--unique_pairs", type=bool, default=False)
     args = parser.parse_args()
 
     return args
@@ -124,7 +125,13 @@ class RunFewShot:
 
         # sentence-transformers adaptation
         batch_size = self.args.batch_size
-        train_examples = sentence_pairs_generation(np.array(x_train), y_train, self.args.num_epochs, multilabel=True)
+        train_examples = sentence_pairs_generation(
+            np.array(x_train),
+            np.array(y_train),
+            self.args.num_epochs,
+            unique_pairs=self.args.unique_pairs,
+            multilabel=True,
+        )
 
         train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=batch_size)
         train_loss = self.loss_class(self.model)
