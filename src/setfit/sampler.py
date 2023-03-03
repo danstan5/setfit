@@ -1,4 +1,5 @@
 from itertools import zip_longest
+import random
 from typing import Generator, Iterable, List
 
 import numpy as np
@@ -165,10 +166,15 @@ class ConstrastiveDataset(IterableDataset):
         return pairs
 
     def __iter__(self):
+        pairs = []
         for pos_pair, neg_pair in zip(self.positive_pairs, self.negative_pairs):
-            # generates one of each in turn
-            yield pos_pair
-            yield neg_pair
+            pairs.append(pos_pair)
+            pairs.append(neg_pair)
+
+        random.shuffle(pairs)
+        for pair in pairs:
+            yield pair
+
 
         if self.pos_index or self.neg_index:
             # not all pairs combinations sampled so continues from last index
